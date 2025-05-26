@@ -50,14 +50,7 @@
     strokeWeight(10);
     for(let v of vertices) point(v.x, v.y);
 
-    // Líneas entre vértices
-    if(vertices.length == 3){
-      stroke('blue');
-      strokeWeight(2);
-      line(vertices[0].x, vertices[0].y, vertices[1].x, vertices[1].y);
-      line(vertices[1].x, vertices[1].y, vertices[2].x, vertices[2].y);
-      line(vertices[2].x, vertices[2].y, vertices[0].x, vertices[0].y);
-    }
+   
   }
 
   function mouseDragged() {
