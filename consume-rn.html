@@ -2,7 +2,7 @@
 <html lang="es">
 <head>
   <meta charset="UTF-8" />
-  <title>Dibuja y detecta triángulos</title>
+  <title>Detector simple de Triángulos</title>
   <script src="https://cdn.jsdelivr.net/npm/p5@1.4.0/lib/p5.min.js"></script>
   <style>
     body { background-color: antiquewhite; text-align: center; font-family: Arial; }
@@ -12,13 +12,12 @@
 </head>
 <body>
 
-<h2>Dibuja un triángulo con el mouse</h2>
-<p id="mensaje">Dibuja libremente un triángulo y suelta el mouse para detectar</p>
+<h2>Dibuja 3 puntos para formar un triángulo</h2>
+<p id="mensaje">Haz clic en 3 lugares dentro del cuadro</p>
 <button onclick="limpiar()">Limpiar</button>
 
 <script>
   let puntos = [];
-  let vertices = [];
 
   function setup() {
     createCanvas(400, 400);
@@ -26,96 +25,51 @@
   }
 
   function draw() {
-    // Fondo blanco
     background(255);
 
-    // Dibuja lo que el usuario ha pintado
+    // Dibuja los puntos y líneas si hay más de 1
     stroke(0);
-    strokeWeight(4);
-    noFill();
-    beginShape();
+    strokeWeight(8);
     for(let p of puntos){
-      vertex(p.x, p.y);
-    }
-    endShape();
-
-    // Si tenemos vertices detectados, dibujarlos
-    strokeWeight(12);
-    stroke('red');
-    for(let v of vertices){
-      point(v.x, v.y);
+      point(p.x, p.y);
     }
 
-    // Si hay 3 vertices, dibuja líneas para visualizar triángulo detectado
-    if(vertices.length === 3){
-      strokeWeight(3);
-      stroke('blue');
-      line(vertices[0].x, vertices[0].y, vertices[1].x, vertices[1].y);
-      line(vertices[1].x, vertices[1].y, vertices[2].x, vertices[2].y);
-      line(vertices[2].x, vertices[2].y, vertices[0].x, vertices[0].y);
+    if(puntos.length === 3){
+      strokeWeight(2);
+      line(puntos[0].x, puntos[0].y, puntos[1].x, puntos[1].y);
+      line(puntos[1].x, puntos[1].y, puntos[2].x, puntos[2].y);
+      line(puntos[2].x, puntos[2].y, puntos[0].x, puntos[0].y);
     }
   }
 
-  function mouseDragged() {
-    // Guardar puntos mientras se arrastra el mouse
-    puntos.push(createVector(mouseX, mouseY));
-  }
-
-  function mouseReleased() {
-    if(puntos.length < 10){
-      document.getElementById('mensaje').innerText = "Dibuja más grande y claro.";
-      return;
-    }
-    vertices = detectarVertices(puntos);
-    if(vertices.length < 3){
-      document.getElementById('mensaje').innerText = "No se detectaron 3 vértices claros, dibuja un triángulo más definido.";
-      return;
-    }
-    let tipo = tipoTriangulo(vertices);
-    document.getElementById('mensaje').innerText = "Triángulo detectado: " + tipo;
-  }
-
-  function limpiar() {
-    puntos = [];
-    vertices = [];
-    background(255);
-    document.getElementById('mensaje').innerText = "Dibuja un triángulo con el mouse";
-  }
-
-  // Detectar 3 vertices simples buscando puntos donde la dirección cambia mucho
-  function detectarVertices(puntos) {
-    let vertices = [];
-    for(let i = 5; i < puntos.length - 5; i++){
-      let prev = puntos[i - 5];
-      let curr = puntos[i];
-      let next = puntos[i + 5];
-
-      // Vectores normalizados
-      let v1 = createVector(curr.x - prev.x, curr.y - prev.y).normalize();
-      let v2 = createVector(next.x - curr.x, next.y - curr.y).normalize();
-
-      // Producto punto entre vectores (ángulo)
-      let angulo = v1.dot(v2);
-
-      // Si el ángulo es pequeño, hay cambio brusco => posible vértice
-      if(angulo < 0.7){
-        // Evitar puntos muy cercanos entre sí
-        let cerca = vertices.some(v => dist(curr.x, curr.y, v.x, v.y) < 30);
-        if(!cerca){
-          vertices.push(curr);
-        }
+  function mousePressed() {
+    if(puntos.length < 3 && mouseX >= 0 && mouseX <= width && mouseY >= 0 && mouseY <= height){
+      puntos.push(createVector(mouseX, mouseY));
+      if(puntos.length === 3){
+        let tipo = tipoTriangulo();
+        document.getElementById('mensaje').innerText = `Triángulo ${tipo}`;
       }
     }
-    return vertices.slice(0, 3); // Solo primeros 3 vértices
   }
 
-  // Calcular tipo de triángulo según lados
-  function tipoTriangulo(v) {
-    let d1 = dist(v[0].x, v[0].y, v[1].x, v[1].y);
-    let d2 = dist(v[1].x, v[1].y, v[2].x, v[2].y);
-    let d3 = dist(v[2].x, v[2].y, v[0].x, v[0].y);
+  function limpiar(){
+    puntos = [];
+    background(255);
+    document.getElementById('mensaje').innerText = "Haz clic en 3 lugares dentro del cuadro";
+  }
 
-    const tol = 15; // tolerancia para igualdades
+  // Función para calcular la distancia entre dos puntos
+  function distancia(a, b){
+    return dist(a.x, a.y, b.x, b.y);
+  }
+
+  // Función para determinar el tipo de triángulo
+  function tipoTriangulo(){
+    let d1 = distancia(puntos[0], puntos[1]);
+    let d2 = distancia(puntos[1], puntos[2]);
+    let d3 = distancia(puntos[2], puntos[0]);
+
+    const tol = 5; // tolerancia para considerar iguales las longitudes
 
     if(abs(d1 - d2) < tol && abs(d2 - d3) < tol){
       return "Equilátero";
@@ -129,3 +83,4 @@
 
 </body>
 </html>
+
