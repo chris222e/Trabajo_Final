@@ -33,16 +33,18 @@
 
     inputImage = createGraphics(64, 64);
 
+    // Crear la red neuronal vacía con ml5
     redNeuronal = ml5.neuralNetwork({ inputs: [64, 64, 4], task: 'imageClassification' });
 
+    // Cargar el modelo desde la carpeta "model"
     redNeuronal.load({
       model: 'model/model.json',
-      metadata: 'model/model_meta.json',
-      weights: 'model/model.weights.bin'
+      metadata: 'model/metadata.json',
+      weights: 'model/weights.bin'
     }, () => {
       modeloCargado = true;
       console.log("✅ Modelo cargado correctamente");
-      clasificar();
+      clasificar(); // Iniciar clasificación
     });
   }
 
@@ -62,7 +64,7 @@
     inputImage.copy(canvas, 0, 0, 400, 400, 0, 0, 64, 64);
     redNeuronal.classify({ image: inputImage }, mostrarResultado);
 
-    // Clasificar otra vez después de 1 segundo
+    // Repetir clasificación cada 1 segundo
     setTimeout(clasificar, 1000);
   }
 
@@ -122,4 +124,3 @@
 
 </body>
 </html>
-
