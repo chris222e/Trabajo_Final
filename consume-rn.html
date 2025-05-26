@@ -43,7 +43,7 @@
       weights: 'model/weights.bin'
     }, () => {
       modeloCargado = true;
-      console.log("✅ Modelo cargado correctamente");
+      console.log(" Modelo cargado correctamente");
       clasificar(); // Iniciar clasificación
     });
   }
@@ -70,20 +70,20 @@
 
   function mostrarResultado(error, resultado) {
     if (error) {
-      console.error("❌ Error al clasificar:", error);
+      console.error(" Error al clasificar:", error);
       return;
     }
 
-    console.log("📦 Resultado de clasificación:", resultado);
+    console.log(" Resultado de clasificación:", resultado);
 
     const triangulo = resultado.find(r => r.label === "triangulo");
 
     if (triangulo && triangulo.confidence > 0.6) {
       const tipo = detectarTipoTriangulo();
       const confianza = nf(triangulo.confidence * 100, 2, 1);
-      resultadoTexto.html(`🔺 ${tipo} - Confianza: ${confianza}%`);
+      resultadoTexto.html(` ${tipo} - Confianza: ${confianza}%`);
     } else {
-      resultadoTexto.html("⚠️ No se detectó un triángulo");
+      resultadoTexto.html(" No se detectó un triángulo");
     }
   }
 
