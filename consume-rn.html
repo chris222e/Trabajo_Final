@@ -2,54 +2,58 @@
 <html lang="es">
 <head>
   <meta charset="UTF-8" />
-  <title>Dibuja y detecta triángulos</title>
+  <title>Detector simple con ml5 y p5</title>
   <script src="https://cdn.jsdelivr.net/npm/p5@1.4.0/lib/p5.min.js"></script>
-  <style>
-    body { background-color: antiquewhite; text-align: center; font-family: Arial; }
-    canvas { border: 1px solid black; margin-top: 10px; }
-    button { margin-top: 10px; }
-  </style>
+  <script src="https://cdn.jsdelivr.net/npm/ml5@0.12.2/dist/ml5.min.js"></script>
+  <style> body { text-align:center; font-family: Arial; } canvas { border:1px solid black; } </style>
 </head>
 <body>
 
-<h2>Dibuja un triángulo con el mouse</h2>
-<p id="mensaje">Dibuja libremente un triángulo y suelta el mouse para detectar</p>
+<h2>Dibuja un triángulo</h2>
+<p id="info">Dibuja y suelta el mouse para detectar</p>
 <button onclick="limpiar()">Limpiar</button>
 
 <script>
+  let nn, canvas, inputImage;
   let puntos = [];
   let vertices = [];
+  let modeloCargado = false;
 
   function setup() {
-    createCanvas(400, 400);
+    canvas = createCanvas(400, 400);
     background(255);
+    inputImage = createGraphics(64, 64);
+
+    // Cargar red neuronal
+    nn = ml5.neuralNetwork({ inputs: [64, 64, 4], task: 'imageClassification' });
+    nn.load({
+      model: 'model/model.json',
+      metadata: 'model/metadata.json',
+      weights: 'model/weights.bin',
+    }, () => {
+      modeloCargado = true;
+      console.log("Modelo cargado");
+    });
   }
 
   function draw() {
-    // Fondo blanco
     background(255);
-
-    // Dibuja lo que el usuario ha pintado
     stroke(0);
-    strokeWeight(4);
+    strokeWeight(3);
     noFill();
     beginShape();
-    for(let p of puntos){
-      vertex(p.x, p.y);
-    }
+    for(let p of puntos) vertex(p.x, p.y);
     endShape();
 
-    // Si tenemos vertices detectados, dibujarlos
-    strokeWeight(12);
+    // Puntos rojos (vértices)
     stroke('red');
-    for(let v of vertices){
-      point(v.x, v.y);
-    }
+    strokeWeight(10);
+    for(let v of vertices) point(v.x, v.y);
 
-    // Si hay 3 vertices, dibuja líneas para visualizar triángulo detectado
-    if(vertices.length === 3){
-      strokeWeight(3);
+    // Líneas entre vértices
+    if(vertices.length == 3){
       stroke('blue');
+      strokeWeight(2);
       line(vertices[0].x, vertices[0].y, vertices[1].x, vertices[1].y);
       line(vertices[1].x, vertices[1].y, vertices[2].x, vertices[2].y);
       line(vertices[2].x, vertices[2].y, vertices[0].x, vertices[0].y);
@@ -57,73 +61,58 @@
   }
 
   function mouseDragged() {
-    // Guardar puntos mientras se arrastra el mouse
     puntos.push(createVector(mouseX, mouseY));
   }
 
   function mouseReleased() {
+    if(!modeloCargado) {
+      document.getElementById('info').innerText = "Modelo no cargado aún.";
+      return;
+    }
     if(puntos.length < 10){
-      document.getElementById('mensaje').innerText = "Dibuja más grande y claro.";
+      document.getElementById('info').innerText = "Dibuja más grande.";
       return;
     }
-    vertices = detectarVertices(puntos);
-    if(vertices.length < 3){
-      document.getElementById('mensaje').innerText = "No se detectaron 3 vértices claros, dibuja un triángulo más definido.";
-      return;
-    }
-    let tipo = tipoTriangulo(vertices);
-    document.getElementById('mensaje').innerText = "Triángulo detectado: " + tipo;
+
+    // Copiar dibujo para clasificar en 64x64
+    inputImage.copy(canvas, 0, 0, 400, 400, 0, 0, 64, 64);
+
+    nn.classify({image: inputImage}, (error, results) => {
+      if(error){
+        console.error(error);
+        document.getElementById('info').innerText = "Error en clasificación.";
+        return;
+      }
+
+      let tri = results.find(r => r.label === 'triangulo' && r.confidence > 0.6);
+      if(tri){
+        vertices = [puntos[0], puntos[Math.floor(puntos.length/2)], puntos[puntos.length-1]];
+        let tipo = tipoTriangulo(vertices);
+        document.getElementById('info').innerText = `Triángulo detectado: ${tipo} - Confianza: ${(tri.confidence*100).toFixed(1)}%`;
+      } else {
+        document.getElementById('info').innerText = "No se detectó triángulo.";
+        vertices = [];
+      }
+    });
   }
 
   function limpiar() {
     puntos = [];
     vertices = [];
     background(255);
-    document.getElementById('mensaje').innerText = "Dibuja un triángulo con el mouse";
+    document.getElementById('info').innerText = "Dibuja y suelta el mouse para detectar";
   }
 
-  // Detectar 3 vertices simples buscando puntos donde la dirección cambia mucho
-  function detectarVertices(puntos) {
-    let vertices = [];
-    for(let i = 5; i < puntos.length - 5; i++){
-      let prev = puntos[i - 5];
-      let curr = puntos[i];
-      let next = puntos[i + 5];
-
-      // Vectores normalizados
-      let v1 = createVector(curr.x - prev.x, curr.y - prev.y).normalize();
-      let v2 = createVector(next.x - curr.x, next.y - curr.y).normalize();
-
-      // Producto punto entre vectores (ángulo)
-      let angulo = v1.dot(v2);
-
-      // Si el ángulo es pequeño, hay cambio brusco => posible vértice
-      if(angulo < 0.7){
-        // Evitar puntos muy cercanos entre sí
-        let cerca = vertices.some(v => dist(curr.x, curr.y, v.x, v.y) < 30);
-        if(!cerca){
-          vertices.push(curr);
-        }
-      }
-    }
-    return vertices.slice(0, 3); // Solo primeros 3 vértices
-  }
-
-  // Calcular tipo de triángulo según lados
   function tipoTriangulo(v) {
     let d1 = dist(v[0].x, v[0].y, v[1].x, v[1].y);
     let d2 = dist(v[1].x, v[1].y, v[2].x, v[2].y);
     let d3 = dist(v[2].x, v[2].y, v[0].x, v[0].y);
 
-    const tol = 15; // tolerancia para igualdades
+    let tol = 20;
 
-    if(abs(d1 - d2) < tol && abs(d2 - d3) < tol){
-      return "Equilátero";
-    } else if(abs(d1 - d2) < tol || abs(d2 - d3) < tol || abs(d1 - d3) < tol){
-      return "Isósceles";
-    } else {
-      return "Escaleno";
-    }
+    if(abs(d1 - d2) < tol && abs(d2 - d3) < tol) return "Equilátero";
+    if(abs(d1 - d2) < tol || abs(d2 - d3) < tol || abs(d1 - d3) < tol) return "Isósceles";
+    return "Escaleno";
   }
 </script>
 
