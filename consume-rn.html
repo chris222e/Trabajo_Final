@@ -2,125 +2,85 @@
 <html lang="es">
 <head>
   <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>Detector de Triángulos</title>
+  <title>Detector simple de Triángulos</title>
   <script src="https://cdn.jsdelivr.net/npm/p5@1.4.0/lib/p5.min.js"></script>
-  <script src="https://cdn.jsdelivr.net/npm/ml5@0.12.2/dist/ml5.min.js"></script>
   <style>
-    body { background-color: antiquewhite; font-family: Arial; text-align: center; }
+    body { background-color: antiquewhite; text-align: center; font-family: Arial; }
     canvas { border: 1px solid black; margin-top: 10px; }
+    button { margin-top: 10px; }
   </style>
 </head>
 <body>
 
+<h2>Dibuja 3 puntos para formar un triángulo</h2>
+<p id="mensaje">Haz clic en 3 lugares dentro del cuadro</p>
+<button onclick="limpiar()">Limpiar</button>
+
 <script>
-  let redNeuronal, canvas, inputImage, botonLimpiar, resultadoTexto;
   let puntos = [];
-  let modeloCargado = false;
 
   function setup() {
-    canvas = createCanvas(400, 400);
+    createCanvas(400, 400);
     background(255);
-
-    botonLimpiar = createButton("Limpiar");
-    botonLimpiar.mousePressed(() => {
-      background(255);
-      puntos = [];
-      resultadoTexto.html("Dibuja un triángulo...");
-    });
-
-    resultadoTexto = createDiv("Dibuja un triángulo...");
-
-    inputImage = createGraphics(64, 64);
-
-    // Crear la red neuronal vacía con ml5
-    redNeuronal = ml5.neuralNetwork({ inputs: [64, 64, 4], task: 'imageClassification' });
-
-    // Cargar el modelo desde la carpeta "model"
-    redNeuronal.load({
-      model: 'model/model.json',
-      metadata: 'model/metadata.json',
-      weights: 'model/weights.bin'
-    }, () => {
-      modeloCargado = true;
-      console.log(" Modelo cargado correctamente");
-      clasificar(); // Iniciar clasificación
-    });
   }
 
   function draw() {
-    if (mouseIsPressed) {
-      strokeWeight(8);
-      stroke(0);
-      line(mouseX, mouseY, pmouseX, pmouseY);
-      puntos.push({ x: mouseX, y: mouseY });
-      if (puntos.length > 200) puntos.splice(0, puntos.length - 150);
+    background(255);
+
+    // Dibuja los puntos y líneas si hay más de 1
+    stroke(0);
+    strokeWeight(8);
+    for(let p of puntos){
+      point(p.x, p.y);
+    }
+
+    if(puntos.length === 3){
+      strokeWeight(2);
+      line(puntos[0].x, puntos[0].y, puntos[1].x, puntos[1].y);
+      line(puntos[1].x, puntos[1].y, puntos[2].x, puntos[2].y);
+      line(puntos[2].x, puntos[2].y, puntos[0].x, puntos[0].y);
     }
   }
 
-  function clasificar() {
-    if (!modeloCargado) return;
-
-    inputImage.copy(canvas, 0, 0, 400, 400, 0, 0, 64, 64);
-    redNeuronal.classify({ image: inputImage }, mostrarResultado);
-
-    // Repetir clasificación cada 1 segundo
-    setTimeout(clasificar, 1000);
-  }
-
-  function mostrarResultado(error, resultado) {
-    if (error) {
-      console.error(" Error al clasificar:", error);
-      return;
-    }
-
-    console.log(" Resultado de clasificación:", resultado);
-
-    const triangulo = resultado.find(r => r.label === "triangulo");
-
-    if (triangulo && triangulo.confidence > 0.6) {
-      const tipo = detectarTipoTriangulo();
-      const confianza = nf(triangulo.confidence * 100, 2, 1);
-      resultadoTexto.html(` ${tipo} - Confianza: ${confianza}%`);
-    } else {
-      resultadoTexto.html(" No se detectó un triángulo");
-    }
-  }
-
-  function detectarTipoTriangulo() {
-    if (puntos.length < 20) return "Triángulo (incompleto)";
-    const v = encontrarVertices(puntos);
-    if (v.length < 3) return "Triángulo";
-
-    const d = (a, b) => dist(a.x, a.y, b.x, b.y);
-    let [a, b, c] = [
-      d(v[0], v[1]),
-      d(v[1], v[2]),
-      d(v[2], v[0])
-    ].sort((x, y) => x - y);
-
-    const tolerancia = 15;
-
-    if (abs(a - b) < tolerancia && abs(b - c) < tolerancia) return "Equilátero";
-    if (abs(a - b) < tolerancia || abs(b - c) < tolerancia || abs(a - c) < tolerancia) return "Isósceles";
-    return "Escaleno";
-  }
-
-  function encontrarVertices(puntos) {
-    const vertices = [];
-    for (let i = 5; i < puntos.length - 5; i++) {
-      let prev = puntos[i - 5], curr = puntos[i], next = puntos[i + 5];
-      let v1 = createVector(curr.x - prev.x, curr.y - prev.y).normalize();
-      let v2 = createVector(next.x - curr.x, next.y - curr.y).normalize();
-      if (v1.dot(v2) < 0.8) {
-        if (!vertices.some(v => dist(curr.x, curr.y, v.x, v.y) < 30)) {
-          vertices.push({ x: curr.x, y: curr.y });
-        }
+  function mousePressed() {
+    if(puntos.length < 3 && mouseX >= 0 && mouseX <= width && mouseY >= 0 && mouseY <= height){
+      puntos.push(createVector(mouseX, mouseY));
+      if(puntos.length === 3){
+        let tipo = tipoTriangulo();
+        document.getElementById('mensaje').innerText = `Triángulo ${tipo}`;
       }
     }
-    return vertices.slice(0, 3);
+  }
+
+  function limpiar(){
+    puntos = [];
+    background(255);
+    document.getElementById('mensaje').innerText = "Haz clic en 3 lugares dentro del cuadro";
+  }
+
+  // Función para calcular la distancia entre dos puntos
+  function distancia(a, b){
+    return dist(a.x, a.y, b.x, b.y);
+  }
+
+  // Función para determinar el tipo de triángulo
+  function tipoTriangulo(){
+    let d1 = distancia(puntos[0], puntos[1]);
+    let d2 = distancia(puntos[1], puntos[2]);
+    let d3 = distancia(puntos[2], puntos[0]);
+
+    const tol = 5; // tolerancia para considerar iguales las longitudes
+
+    if(abs(d1 - d2) < tol && abs(d2 - d3) < tol){
+      return "Equilátero";
+    } else if(abs(d1 - d2) < tol || abs(d2 - d3) < tol || abs(d1 - d3) < tol){
+      return "Isósceles";
+    } else {
+      return "Escaleno";
+    }
   }
 </script>
 
 </body>
 </html>
+
