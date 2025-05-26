@@ -8,6 +8,7 @@
   <script src="https://cdn.jsdelivr.net/npm/ml5@0.12.2/dist/ml5.min.js"></script>
   <style>
     body { background-color: antiquewhite; font-family: Arial; text-align: center; }
+    canvas { border: 1px solid black; margin-top: 10px; }
   </style>
 </head>
 <body>
@@ -15,6 +16,7 @@
 <script>
   let redNeuronal, canvas, inputImage, botonLimpiar, resultadoTexto;
   let puntos = [];
+  let modeloCargado = false;
 
   function setup() {
     canvas = createCanvas(400, 400);
@@ -24,6 +26,7 @@
     botonLimpiar.mousePressed(() => {
       background(255);
       puntos = [];
+      resultadoTexto.html("Dibuja un triángulo...");
     });
 
     resultadoTexto = createDiv("Dibuja un triángulo...");
@@ -37,7 +40,8 @@
       metadata: 'model/model_meta.json',
       weights: 'model/model.weights.bin'
     }, () => {
-      console.log("Modelo cargado");
+      modeloCargado = true;
+      console.log("✅ Modelo cargado correctamente");
       clasificar();
     });
   }
@@ -45,6 +49,7 @@
   function draw() {
     if (mouseIsPressed) {
       strokeWeight(8);
+      stroke(0);
       line(mouseX, mouseY, pmouseX, pmouseY);
       puntos.push({ x: mouseX, y: mouseY });
       if (puntos.length > 200) puntos.splice(0, puntos.length - 150);
@@ -52,23 +57,32 @@
   }
 
   function clasificar() {
+    if (!modeloCargado) return;
+
     inputImage.copy(canvas, 0, 0, 400, 400, 0, 0, 64, 64);
     redNeuronal.classify({ image: inputImage }, mostrarResultado);
+
+    // Clasificar otra vez después de 1 segundo
+    setTimeout(clasificar, 1000);
   }
 
   function mostrarResultado(error, resultado) {
-    if (error) return console.error(error);
+    if (error) {
+      console.error("❌ Error al clasificar:", error);
+      return;
+    }
+
+    console.log("📦 Resultado de clasificación:", resultado);
 
     const triangulo = resultado.find(r => r.label === "triangulo");
+
     if (triangulo && triangulo.confidence > 0.6) {
       const tipo = detectarTipoTriangulo();
       const confianza = nf(triangulo.confidence * 100, 2, 1);
-      resultadoTexto.html(`🔺 ${tipo} - ${confianza}%`);
+      resultadoTexto.html(`🔺 ${tipo} - Confianza: ${confianza}%`);
     } else {
-      resultadoTexto.html("No se detectó un triángulo");
+      resultadoTexto.html("⚠️ No se detectó un triángulo");
     }
-
-    clasificar();
   }
 
   function detectarTipoTriangulo() {
@@ -102,9 +116,10 @@
         }
       }
     }
-    return vertices.slice(0, 3); // Solo 3 vértices
+    return vertices.slice(0, 3);
   }
 </script>
 
 </body>
 </html>
+
