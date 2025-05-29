@@ -1,27 +1,31 @@
 <!DOCTYPE html>
 <html lang="es">
 <head>
-  <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <meta charset="UTF-8">
   <title>Entrenamiento de Triángulos</title>
-
   <script src="https://cdn.jsdelivr.net/npm/p5@1.4.0/lib/p5.min.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/ml5@0.12.2/dist/ml5.min.js"></script>
 </head>
 <body>
 <script>
-
-  let triangles = [];
   let ShapeClassifier;
+  let equilatero = [];
+  let isosceles = [];
+  let escaleno = [];
 
   function preload() {
     for (let i = 0; i < 100; i++) {
-      let index = nf((i + 1), 3, 0); // Formato 001, 002, ...
-      triangles[i] = loadImage(`data/triangle${index}.png`);
+      let index = nf(i + 1, 3, 0); // 001, 002...
+      equilatero[i] = loadImage(`data/equilatero${index}.png`);
+      isosceles[i] = loadImage(`data/isosceles${index}.png`);
+      escaleno[i] = loadImage(`data/escaleno${index}.png`);
     }
   }
 
   function setup() {
+    noCanvas();
+
+    // Configuración del clasificador
     let options = {
       inputs: [64, 64, 4],
       task: 'imageClassification',
@@ -30,8 +34,11 @@
 
     ShapeClassifier = ml5.neuralNetwork(options);
 
+    // Cargar datos de entrenamiento
     for (let i = 0; i < 100; i++) {
-      ShapeClassifier.addData({ image: triangles[i] }, { label: "triangulo" });
+      ShapeClassifier.addData({ image: equilatero[i] }, { label: "equilatero" });
+      ShapeClassifier.addData({ image: isosceles[i] }, { label: "isosceles" });
+      ShapeClassifier.addData({ image: escaleno[i] }, { label: "escaleno" });
     }
 
     ShapeClassifier.normalizeData();
@@ -39,10 +46,9 @@
   }
 
   function finishedTraining() {
-    console.log("Entrenamiento finalizado.");
-    ShapeClassifier.save(); // Guarda el modelo entrenado con triángulos
+    console.log("✅ Entrenamiento finalizado");
+    ShapeClassifier.save(); // Guarda el modelo
   }
-
 </script>
 </body>
 </html>

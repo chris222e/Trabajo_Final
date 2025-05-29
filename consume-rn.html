@@ -1,113 +1,90 @@
 <!DOCTYPE html>
 <html lang="es">
 <head>
-  <meta charset="UTF-8" />
-  <title>Detector simple con ml5 y p5</title>
+  <meta charset="UTF-8">
+  <title>Clasificador de Triángulos</title>
   <script src="https://cdn.jsdelivr.net/npm/p5@1.4.0/lib/p5.min.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/ml5@0.12.2/dist/ml5.min.js"></script>
-  <style> body { text-align:center; font-family: Arial; } canvas { border:1px solid black; } </style>
+  <style>
+    body {
+      text-align: center;
+      background-color: #f0f8ff;
+      font-family: Arial, sans-serif;
+    }
+    canvas {
+      border: 2px solid #333;
+      margin-top: 20px;
+    }
+    button {
+      margin-top: 10px;
+      padding: 10px 20px;
+    }
+  </style>
 </head>
 <body>
 
-<h2>Dibuja un triángulo</h2>
-<p id="info">Dibuja y suelta el mouse para detectar</p>
-<button onclick="limpiar()">Limpiar</button>
+  <h1>Clasificador de Triángulos</h1>
+  <p>Dibuja un triángulo con el mouse y el modelo lo clasificará.</p>
+  <div id="resultado">Cargando modelo...</div>
+  <br>
+  <button id="limpiar">Limpiar</button>
 
-<script>
-  let nn, canvas, inputImage;
-  let puntos = [];
-  let vertices = [];
-  let modeloCargado = false;
+  <script>
+    let canvas, classifier, resultDiv, clearButton, inputImage;
 
-  function setup() {
-    canvas = createCanvas(400, 400);
-    background(255);
-    inputImage = createGraphics(64, 64);
+    function setup() {
+      canvas = createCanvas(400, 400);
+      background(255);
 
-    // Cargar red neuronal
-    nn = ml5.neuralNetwork({ inputs: [64, 64, 4], task: 'imageClassification' });
-    nn.load({
-      model: 'model/model.json',
-      metadata: 'model/metadata.json',
-      weights: 'model/weights.bin',
-    }, () => {
-      modeloCargado = true;
-      console.log("Modelo cargado");
-    });
-  }
+      inputImage = createGraphics(64, 64);
+      resultDiv = select('#resultado');
+      clearButton = select('#limpiar');
+      clearButton.mousePressed(() => background(255));
 
-  function draw() {
-    background(200, 230, 201);
-    stroke(0);
-    strokeWeight(3);
-    noFill();
-    beginShape();
-    for(let p of puntos) vertex(p.x, p.y);
-    endShape();
+      // Cargar el modelo entrenado
+      const modelDetails = {
+        model: 'model/model.json',
+        metadata: 'model/model_meta.json',
+        weights: 'model/model.weights.bin'
+      };
 
-    // Puntos rojos (vértices)
-    stroke('red');
-    strokeWeight(10);
-    for(let v of vertices) point(v.x, v.y);
+      const options = {
+        inputs: [64, 64, 4],
+        task: 'imageClassification'
+      };
 
-   
-  }
-
-  function mouseDragged() {
-    puntos.push(createVector(mouseX, mouseY));
-  }
-
-  function mouseReleased() {
-    if(!modeloCargado) {
-      document.getElementById('info').innerText = "Modelo no cargado aún.";
-      return;
-    }
-    if(puntos.length < 10){
-      document.getElementById('info').innerText = "Dibuja más grande.";
-      return;
+      classifier = ml5.neuralNetwork(options);
+      classifier.load(modelDetails, modelLoaded);
     }
 
-    // Copiar dibujo para clasificar en 64x64
-    inputImage.copy(canvas, 0, 0, 400, 400, 0, 0, 64, 64);
+    function modelLoaded() {
+      console.log("Modelo cargado.");
+      resultDiv.html("Modelo cargado. Dibuja un triángulo.");
+      classifyCanvas();
+    }
 
-    nn.classify({image: inputImage}, (error, results) => {
-      if(error){
-        console.error(error);
-        document.getElementById('info').innerText = "Error en clasificación.";
-        return;
+    function draw() {
+      if (mouseIsPressed) {
+        strokeWeight(8);
+        stroke(0);
+        line(mouseX, mouseY, pmouseX, pmouseY);
       }
+    }
 
-      let tri = results.find(r => r.label === 'triangulo' && r.confidence > 0.6);
-      if(tri){
-        vertices = [puntos[0], puntos[Math.floor(puntos.length/2)], puntos[puntos.length-1]];
-        let tipo = tipoTriangulo(vertices);
-        document.getElementById('info').innerText = `Triángulo detectado: ${tipo} - Confianza: ${(tri.confidence*100).toFixed(1)}%`;
-      } else {
-        document.getElementById('info').innerText = "No se detectó triángulo.";
-        vertices = [];
-      }
-    });
-  }
-
-  function limpiar() {
-    puntos = [];
-    vertices = [];
-    background(255);
-    document.getElementById('info').innerText = "Dibuja y suelta el mouse para detectar";
-  }
-
-  function tipoTriangulo(v) {
-    let d1 = dist(v[0].x, v[0].y, v[1].x, v[1].y);
-    let d2 = dist(v[1].x, v[1].y, v[2].x, v[2].y);
-    let d3 = dist(v[2].x, v[2].y, v[0].x, v[0].y);
-
-    let tol = 20;
-
-    if(abs(d1 - d2) < tol && abs(d2 - d3) < tol) return "Equilátero";
-    if(abs(d1 - d2) < tol || abs(d2 - d3) < tol || abs(d1 - d3) < tol) return "Isósceles";
-    return "Escaleno";
-  }
-</script>
+    function classifyCanvas() {
+      inputImage.copy(canvas, 0, 0, 400, 400, 0, 0, 64, 64);
+      classifier.classify({ image: inputImage }, (err, results) => {
+        if (err) {
+          console.error(err);
+          return;
+        }
+        let etiqueta = results[0].label;
+        let confianza = (results[0].confidence * 100).toFixed(2);
+        resultDiv.html(`Triángulo: ${etiqueta} (${confianza}%)`);
+        setTimeout(classifyCanvas, 1000); // Clasificar cada 1 segundo
+      });
+    }
+  </script>
 
 </body>
 </html>
